@@ -18,6 +18,8 @@ from sys import exit
 import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 from urllib.parse import unquote
+import wx_send
+from notify import send
 
 # 禁用安全请求警告
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
@@ -1770,3 +1772,6 @@ if __name__ == '__main__':
         for index, infos in enumerate(tokens):
             run_result = RUN(infos, index).main()
             if not run_result: continue
+
+    wx_send.WxPusher_send_message(title="顺丰签到通知", content=send_msg)
+    send(title="顺丰签到通知", content=send_msg)
