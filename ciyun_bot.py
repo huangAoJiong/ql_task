@@ -16,6 +16,7 @@ import time
 import random
 import logging
 import wx_send
+from notify import send
 
 # 获取当前日期并格式化
 today_str = datetime.now().strftime("%Y-%m-%d")
@@ -71,7 +72,6 @@ class ZovpsClient:
             return True
         else:
             print(f"登录失败:{self.username} : {self.password}")
-            # print(f"登录失败，状态码：{resp.status_code}，响应：{resp.text}")
             self.send_msg += f"登录失败，状态码：{resp.status_code}，响应：{resp.text}"
             return False
 
@@ -212,7 +212,7 @@ class QQClient:
             return None
 
 
-def main():
+def main1():
 
     client = ZovpsClient()
     client.get_token()
@@ -255,8 +255,75 @@ def main():
     print(client.send_msg)
     wx_send.WxPusher_send_message(title="慈云签到通知", content=client.send_msg)
 
+def main():
+    # 初始化QQ客户端和消息内容（所有账号共用）
+    qq_client = QQClient()
+    total_send_msg = "慈云签到结果汇总：\n\n"
 
+    try:
+        if "ciyun_info" in os.environ:
+            ciyun_info = os.environ["ciyun_info"]
+            accounts = ciyun_info.split("&")  # 用&分割多个账号
+            
+            for account in accounts:
+                # 为每个账号创建新的客户端实例
+                client = ZovpsClient()
+                client.get_token()
+                
+                parts = account.split("@")
+                if len(parts) != 3:
+                    error_msg = f"账号信息格式错误，必须包含且仅包含两个@，分成三个部分: {account}\n"
+                    print(error_msg)
+                    total_send_msg += error_msg
+                    continue
+                
+                username, password, token = parts
+                print(f"检测到用户【{username}】，现在开始签到......\n")
+                client.send_msg = f"检测到用户【{username}】，现在开始签到......\n"
+                
+                # 使用签到客户端
+                client.username = username
+                client.password = password
+                if client.login():
+                    time.sleep(random.randint(10, 30))
+                    client.sign_in()
+                    client.get_points()
+                else:
+                    client.send_msg += f"用户【{username}】登录失败\n"
+                
+                # 收集每个账号的结果
+                total_send_msg += client.send_msg + "\n------------------------\n"
+                
+        else:
+            # 如果没有环境变量，使用默认账户
+            client = ZovpsClient()
+            client.get_token()
+            
+            username = "15565362938"
+            password = "Y102111079"
+            print("使用默认账户签到")
+            client.send_msg = "使用默认账户签到\n"
+            
+            client.username = username
+            client.password = password
+            if client.login():
+                time.sleep(random.randint(10, 30))
+                client.sign_in()
+                client.get_points()
+            
+            total_send_msg += client.send_msg
+                
+    except Exception as e:
+        error_msg = f"【getCookie Error】{e}\n"
+        print(error_msg)
+        total_send_msg += error_msg
+
+    # 发送通知
+    # print(qq_client.send_group_msg("慈云签到通知", total_send_msg))
+    print(total_send_msg)
+    wx_send.WxPusher_send_message(title="慈云签到通知", content=total_send_msg)
+    send("慈云 签到", total_send_msg)
+    
 # 使用示例
 if __name__ == "__main__":
     main()
-    # wx_send.WxPusher_send_message("title", "tent")
